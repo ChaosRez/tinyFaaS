@@ -182,6 +182,40 @@ For example, to use `6000` as the port for the CoAP and deactivate GRPC, run the
 docker run --env COAP_PORT=6000 --env GRPC_PORT=-1 -v /var/run/docker.sock:/var/run/docker.sock -p 8080:8080 --name tinyfaas-mgmt -d tinyfaas-mgmt tinyfaas-mgmt
 ```
 
+### Sandboxed Function Handlers with gVisor
+
+By default, function handlers are ordinary Docker containers (runc) that share the host kernel.
+To run them in a [gVisor](https://gvisor.dev) sandbox instead, set `TF_CONTAINER_RUNTIME` to the name of a runtime registered with your Docker daemon:
+
+```bash
+TF_CONTAINER_RUNTIME=runsc ./tinyfaas-linux-amd64
+```
+
+| Variable               | Default                          | Effect                                                                                  |
+| ---------------------- | -------------------------------- | --------------------------------------------------------------------------------------- |
+| `TF_CONTAINER_RUNTIME` | unset (Docker's default, `runc`) | Sets Docker `HostConfig.Runtime` for every function handler container, e.g. `runsc`. |
+
+tinyFaaS checks at startup that the runtime is registered with Docker and exits with an error listing the available runtimes if it is not.
+Only handler containers are affected; function images are still built by Docker as before.
+gVisor requires a Linux host (amd64 or arm64), so it does not work with Docker Desktop on macOS.
+
+Install `runsc` and register it with Docker (see the [gVisor installation guide](https://gvisor.dev/docs/user_guide/install/) for the current options, including the apt repository):
+
+```bash
+ARCH=$(uname -m)   # x86_64 or aarch64
+URL=https://storage.googleapis.com/gvisor/releases/release/latest/${ARCH}
+curl -fsSLO ${URL}/gvisor.tar.bz2 && curl -fsSLO ${URL}/gvisor.tar.bz2.sha512
+sha512sum -c gvisor.tar.bz2.sha512
+mkdir gvisor && tar -xjf gvisor.tar.bz2 -C gvisor
+sudo cp -r gvisor/runsc gvisor/containerd-shim-runsc-v1 gvisor/gvisor-bin /usr/local/bin/
+sudo runsc install            # adds "runsc" to /etc/docker/daemon.json
+sudo systemctl restart docker
+docker run --rm --runtime=runsc alpine dmesg | head -1   # prints "Starting gVisor..."
+```
+
+gVisor intercepts the handler's system calls in a user-space kernel, which adds start-up and I/O cost.
+[`benchmarks/gvisor-vs-runc.md`](./benchmarks/gvisor-vs-runc.md) has measured cold-start and warm-latency numbers.
+
 ### Tests
 
 The tests in [`./test`](./test) test the end-to-end functionality of tinyFaaS and are expected to complete successfully.

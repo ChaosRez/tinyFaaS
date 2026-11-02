@@ -46,6 +46,8 @@ type dockerHandler struct {
 type DockerBackend struct {
 	client     *client.Client
 	tinyFaaSID string
+	// runtime is the OCI runtime for handler containers ("" = Docker default).
+	runtime string
 }
 
 func New(tinyFaaSID string) *DockerBackend {
@@ -56,9 +58,28 @@ func New(tinyFaaSID string) *DockerBackend {
 		return nil
 	}
 
+	runtime, err := resolveContainerRuntime(client)
+	if err != nil {
+		log.Fatalf("error configuring container runtime: %s", err)
+		return nil
+	}
+	if runtime != "" {
+		log.Printf("using container runtime %s for function handlers", runtime)
+	}
+
 	return &DockerBackend{
 		client:     client,
 		tinyFaaSID: tinyFaaSID,
+		runtime:    runtime,
+	}
+}
+
+// handlerHostConfig builds the HostConfig for a function handler container.
+// An empty runtime leaves the choice to the Docker daemon (normally runc).
+func handlerHostConfig(networkName string, runtime string) *container.HostConfig {
+	return &container.HostConfig{
+		NetworkMode: container.NetworkMode(networkName),
+		Runtime:     runtime,
 	}
 }
 
@@ -189,9 +210,7 @@ func (db *DockerBackend) Create(name string, env string, threads int, filedir st
 				},
 				Env: e,
 			},
-			&container.HostConfig{
-				NetworkMode: container.NetworkMode(dh.uniqueName),
-			},
+			handlerHostConfig(dh.uniqueName, db.runtime),
 			nil,
 			nil,
 			dh.uniqueName+fmt.Sprintf("-%d", i),
