@@ -171,7 +171,7 @@ Both rounds agree closely, with the run order reversed between them.
 | [`results/inprocess.csv`](./results/inprocess.csv) | 1200 | in-container function timings |
 | [`results/env.json`](./results/env.json) | | host, kernel, Docker and gVisor versions |
 | [`results/summary.md`](./results/summary.md) | | output of `summarize.py` |
-| `results/tinyfaas-{runc,runsc}.log.gz` | | full tinyFaaS manager logs of the run |
+| `results/manager-{runc,runsc}.log.gz` | | full tinyFaaS manager logs of the run |
 
 ## Interpretation
 

@@ -280,7 +280,7 @@ def main():
                 for i in range(args.container):
                     container_start(label, rnd, i, image, net, cont_w)
                 fk.flush()
-                tf = TinyFaaS(binary, RUNTIMES[label], os.path.join(args.out, f"tinyfaas-{label}.log"))
+                tf = TinyFaaS(binary, RUNTIMES[label], os.path.join(args.out, f"manager-{label}.log"))
                 try:
                     for i in range(args.cold):
                         cold_start(label, rnd, i, cold_w)
